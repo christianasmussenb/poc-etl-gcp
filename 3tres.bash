@@ -1,3 +1,6 @@
+#!/bin/bash
+gcloud config list
+
 gcloud compute ssh --zone "us-central1-a" "poc-pg-vm" --project "poc-etl-gcp"
 sudo growpart /dev/sda 1
 sudo resize2fs /dev/sda1

@@ -1,4 +1,6 @@
+#!/bin/bash
 gcloud config list
+
 gcloud compute instances create poc-pg-vm \
    --zone=us-central1-a \
    --machine-type=e2-micro \

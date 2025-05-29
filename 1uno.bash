@@ -1,4 +1,8 @@
+#!/bin/bash
+gcloud config list
+
 gcloud auth login
+
 gcloud config set project poc-etl-gcp
 
 gcloud services enable \

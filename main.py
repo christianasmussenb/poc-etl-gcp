@@ -1,9 +1,9 @@
-import os, json, magic, pandas as pd, psycopg2, functions_framework
+import os, json, magic, pandas as pd, psycopg2, flask
 from google.cloud import pubsub_v1, logging as gcp_logging
 
+app = flask.Flask(__name__)
 publisher = pubsub_v1.PublisherClient()
-log_client = gcp_logging.Client()
-log_client.setup_logging()
+gcp_logging.Client().setup_logging()
 
 PG_CONN = psycopg2.connect(
     host=os.environ["PG_HOST"],
@@ -11,45 +11,46 @@ PG_CONN = psycopg2.connect(
     user=os.environ["PG_USER"],
     password=os.environ["PG_PWD"])
 
-def load_df_to_pg(df, table):
+def load(df):
     with PG_CONN, PG_CONN.cursor() as cur:
-        # upsert simplificado
-        for _, row in df.iterrows():
-            cur.execute("INSERT INTO ...", tuple(row))
+        for row in df.itertuples(index=False):
+            cur.execute("INSERT INTO raw_data VALUES (%s,%s,%s) ON CONFLICT DO NOTHING", row)
 
-@functions_framework.cloud_event
-def ingest(cloud_event):
-    bucket = cloud_event.data["bucket"]
-    name   = cloud_event.data["name"]
-    uri    = f"gs://{bucket}/{name}"
+@app.route("/", methods=["POST"])
+def ingest():
+    data = flask.request.get_json()
+    bucket, name = data["bucket"], data["name"]
+    tmp = f"/tmp/{os.path.basename(name)}"
+    os.system(f"gsutil cp gs://{bucket}/{name} {tmp}")
 
-    df, table = None, "raw_data"
     try:
-        tmp = f"/tmp/{os.path.basename(name)}"
-        os.system(f"gsutil cp {uri} {tmp}")
-        mimetype = magic.from_file(tmp, mime=True)
-
-        if mimetype in ["text/csv", "text/plain"]:
+        mt = magic.from_file(tmp, mime=True)
+        if mt in ("text/csv", "text/plain"):
             df = pd.read_csv(tmp)
-        elif mimetype in ["application/vnd.ms-excel",
-                          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]:
+        elif "spreadsheet" in mt or "ms-excel" in mt:
             df = pd.read_excel(tmp)
         else:
-            raise ValueError(f"Tipo no soportado: {mimetype}")
+            raise ValueError(f"Tipo no soportado {mt}")
 
-        # --- VALIDACIONES BÁSICAS ----
-        assert not df.isnull().any().any(), "Nulls detectados"
-        assert len(df.columns) >= 3, "Demasiadas pocas columnas"
-        # más reglas de negocio …
+        # Reglas de calidad mínimas
+        assert not df.isna().any().any()
+        load(df)
 
-        load_df_to_pg(df, table)
         publisher.publish("projects/$PROJECT_ID/topics/pipeline-success",
                           json.dumps({"file": name}).encode())
-        print("Carga exitosa", extra={"severity": "INFO"})
+        return "OK", 200
 
     except Exception as e:
         publisher.publish("projects/$PROJECT_ID/topics/pipeline-error",
                           json.dumps({"file": name, "error": str(e)}).encode())
-        print(f"ERROR {e}", extra={"severity": "ERROR"})
-        raise
-    
+        flask.current_app.logger.error(str(e))
+        return "FAIL", 500
+@app.route("/health", methods=["GET"])
+def health():
+    try:
+        with PG_CONN.cursor() as cur:
+            cur.execute("SELECT 1")
+        return "OK", 200
+    except Exception as e:
+        flask.current_app.logger.error(str(e))
+        return "FAIL", 500
