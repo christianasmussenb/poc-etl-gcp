@@ -1,0 +1,21 @@
+# cloudbuild.yaml  (mínimo útil)
+steps:
+  # 1- Build: empaquetar e instalar deps
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud functions deploy load_to_pg \
+          --gen2 \
+          --runtime=python312 \
+          --entry-point=ingest \
+          --source='.' \
+          --trigger-event-filters="type=google.cloud.storage.object.v1.finalized" \
+          --trigger-event-filters="bucket=poc-data-staging" \
+          --region=us-central1 \
+          --service-account=sa-pipeline@${PROJECT_ID}.iam.gserviceaccount.com \
+          --vpc-connector=fn-to-pg \
+          --env-vars-file=env.yaml \
+          --memory=512Mi --timeout=540 --quiet
+timeout: '900s'      # (opcional) 15 min máx
