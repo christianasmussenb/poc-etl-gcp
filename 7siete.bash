@@ -2,7 +2,7 @@
 gcloud config list
 
 gcloud run deploy pipeline \
-  --image us-central1-docker.pkg.dev/poc-etl-gcp/poc/pipeline:0.1 \
+  --image us-central1-docker.pkg.dev/poc-etl-gcp/poc/pipeline:0.5 \
   --region us-central1 \
   --service-account=sa-pipeline@poc-etl-gcp.iam.gserviceaccount.com \
   --vpc-connector=fn-to-pg \

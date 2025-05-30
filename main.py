@@ -36,12 +36,12 @@ def ingest():
         assert not df.isna().any().any()
         load(df)
 
-        publisher.publish("projects/$PROJECT_ID/topics/pipeline-success",
+        publisher.publish("projects/poc-etl-gcp/topics/pipeline-success",
                           json.dumps({"file": name}).encode())
         return "OK", 200
 
     except Exception as e:
-        publisher.publish("projects/$PROJECT_ID/topics/pipeline-error",
+        publisher.publish("projects/poc-etl-gcp/topics/pipeline-error",
                           json.dumps({"file": name, "error": str(e)}).encode())
         flask.current_app.logger.error(str(e))
         return "FAIL", 500
