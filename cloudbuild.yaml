@@ -1,4 +1,4 @@
-# cloudbuild.yaml  (mínimo útil)
+# cloudbuild.yaml
 options:
   default_logs_bucket_behavior: REGIONAL_USER_OWNED_BUCKET   # ✅ recomendado
 
