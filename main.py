@@ -1,56 +1,44 @@
-import os, json, magic, pandas as pd, psycopg2, flask
-from google.cloud import pubsub_v1, logging as gcp_logging
+import os, pathlib, pandas as pd, psycopg2
+from google.cloud import storage
 
-app = flask.Flask(__name__)
-publisher = pubsub_v1.PublisherClient()
-gcp_logging.Client().setup_logging()
-
-PG_CONN = psycopg2.connect(
+# ↓ parámetros fijos vía env-vars
+PG = dict(
     host=os.environ["PG_HOST"],
     dbname=os.environ["PG_DB"],
     user=os.environ["PG_USER"],
-    password=os.environ["PG_PWD"])
+    password=os.environ["PG_PWD"],
+    connect_timeout=5,
+)
 
-def load(df):
-    with PG_CONN, PG_CONN.cursor() as cur:
+storage_client = storage.Client()
+
+def ingest(event, context):
+    bucket, name = event["bucket"], event["name"]
+    tmp_path = f"/tmp/{pathlib.Path(name).name}"
+
+    # 1. descarga
+    storage_client.bucket(bucket).blob(name).download_to_filename(tmp_path)
+
+    # 2. lectura + mini ETL
+    if name.endswith(".csv") or name.endswith(".txt"):
+        df = pd.read_csv(tmp_path)
+    else:  # xlsx
+        df = pd.read_excel(tmp_path)
+
+    # 3. reglas de calidad
+    assert not df.isna().any().any(), "Nulls detectados"
+    assert len(df.columns) >= 3, "Se requieren ≥3 columnas"
+
+    # 4. carga incremental
+    with psycopg2.connect(**PG) as conn, conn.cursor() as cur:
         for row in df.itertuples(index=False):
-            cur.execute("INSERT INTO raw_data VALUES (%s,%s,%s) ON CONFLICT DO NOTHING", row)
+            cur.execute(
+                """
+                INSERT INTO raw_data (col1,col2,col3)
+                VALUES (%s,%s,%s)
+                ON CONFLICT DO NOTHING
+                """,
+                row[:3],
+            )
 
-@app.route("/", methods=["POST"])
-def ingest():
-    data = flask.request.get_json()
-    bucket, name = data["bucket"], data["name"]
-    tmp = f"/tmp/{os.path.basename(name)}"
-    os.system(f"gsutil cp gs://{bucket}/{name} {tmp}")
-
-    try:
-        mt = magic.from_file(tmp, mime=True)
-        if mt in ("text/csv", "text/plain"):
-            df = pd.read_csv(tmp)
-        elif "spreadsheet" in mt or "ms-excel" in mt:
-            df = pd.read_excel(tmp)
-        else:
-            raise ValueError(f"Tipo no soportado {mt}")
-
-        # Reglas de calidad mínimas
-        assert not df.isna().any().any()
-        load(df)
-
-        publisher.publish("projects/poc-etl-gcp/topics/pipeline-success",
-                          json.dumps({"file": name}).encode())
-        return "OK", 200
-
-    except Exception as e:
-        publisher.publish("projects/poc-etl-gcp/topics/pipeline-error",
-                          json.dumps({"file": name, "error": str(e)}).encode())
-        flask.current_app.logger.error(str(e))
-        return "FAIL", 500
-@app.route("/health", methods=["GET"])
-def health():
-    try:
-        with PG_CONN.cursor() as cur:
-            cur.execute("SELECT 1")
-        return "OK", 200
-    except Exception as e:
-        flask.current_app.logger.error(str(e))
-        return "FAIL", 500
+    return f"Rows inserted: {len(df)}", 200

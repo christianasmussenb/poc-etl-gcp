@@ -1,0 +1,8 @@
+flask==3.*
+gunicorn==22.*
+pandas==2.2.*
+openpyxl==3.*
+psycopg2-binary==2.9.*
+python-magic==0.4.*
+google-cloud-pubsub==2.*
+google-cloud-logging==3.*

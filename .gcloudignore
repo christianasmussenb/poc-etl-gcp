@@ -12,6 +12,8 @@
 # below:
 .git
 .gitignore
+*.bash
+
 
 node_modules
 #!include:.gitignore
