@@ -1,4 +1,7 @@
 # cloudbuild.yaml  (mínimo útil)
+options:
+  default_logs_bucket_behavior: REGIONAL_USER_OWNED_BUCKET   # ✅ recomendado
+
 steps:
   # 1- Build: empaquetar e instalar deps
   - name: 'gcr.io/cloud-builders/gcloud'
