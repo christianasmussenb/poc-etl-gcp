@@ -14,7 +14,7 @@ steps:
           --trigger-event-filters="type=google.cloud.storage.object.v1.finalized" \
           --trigger-event-filters="bucket=poc-data-staging" \
           --region=us-central1 \
-          --service-account=sa-pipeline@${PROJECT_ID}.iam.gserviceaccount.com \
+          --service-account=sa-pipeline@poc-etl-gcp.iam.gserviceaccount.com \
           --vpc-connector=fn-to-pg \
           --env-vars-file=env.yaml \
           --memory=512Mi --timeout=540 --quiet
