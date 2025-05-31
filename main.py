@@ -11,7 +11,6 @@ import json
 import pandas as pd
 import psycopg2
 from google.cloud import storage, pubsub_v1
-from flask import abort
 
 # ---------- configuración global (solo se ejecuta en el cold-start) ----------
 PROJECT_ID = os.environ["GCP_PROJECT"]
@@ -71,7 +70,7 @@ def _insert_df(df: pd.DataFrame) -> int:
 def ingest(event: dict, _context):
     bucket, name = event["bucket"], event["name"]
     if not bucket or not name:
-        abort(400, "Bad event payload")
+        raise # ValueError("Bad event payload")
 
     try:
         local = _download_to_tmp(bucket, name)
@@ -83,7 +82,7 @@ def ingest(event: dict, _context):
             "file": name,
             "rows": inserted
         }).encode())
-        return f"Rows inserted: {inserted}", 200
+        return # f"Rows inserted: {inserted}", 200
 
     except Exception as exc:
         publisher.publish(TOPIC_ERR, json.dumps({
@@ -91,4 +90,4 @@ def ingest(event: dict, _context):
             "error": str(exc)
         }).encode())
         # Cloud Functions considera que un 500 provoca re-intento; perfecto
-        abort(500, str(exc))
+        raise # ValueError(500, str(exc))
