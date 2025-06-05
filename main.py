@@ -13,8 +13,8 @@ import psycopg2
 from google.cloud import storage, pubsub_v1
 
 # ---------- configuración global (solo se ejecuta en el cold-start) ----------
-TOPIC_OK   = f"projects/poc-etl-gcp//topics/pipeline-success"
-TOPIC_ERR  = f"projects/poc-etl-gcp//topics/pipeline-error"
+TOPIC_OK   = f"projects/poc-etl-gcp/topics/pipeline-success"
+TOPIC_ERR  = f"projects/poc-etl-gcp/topics/pipeline-error"
 
 PG_PARAMS = dict(
     host=os.environ["PG_HOST"],
