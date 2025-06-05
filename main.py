@@ -13,8 +13,9 @@ import psycopg2
 from google.cloud import storage, pubsub_v1
 
 # ---------- configuración global (solo se ejecuta en el cold-start) ----------
-TOPIC_OK   = f"projects/poc-etl-gcp//topics/pipeline-success"
-TOPIC_ERR  = f"projects/poc-etl-gcp//topics/pipeline-error"
+PROJECT_ID = os.environ["GCP_PROJECT"]
+TOPIC_OK   = f"projects/{PROJECT_ID}/topics/pipeline-success"
+TOPIC_ERR  = f"projects/{PROJECT_ID}/topics/pipeline-error"
 
 PG_PARAMS = dict(
     host=os.environ["PG_HOST"],
@@ -69,7 +70,7 @@ def _insert_df(df: pd.DataFrame) -> int:
 def ingest(event: dict, _context):
     bucket, name = event["bucket"], event["name"]
     if not bucket or not name:
-        raise # ValueError("Bad event payload")
+        raise ValueError("Bad event payload")
 
     try:
         local = _download_to_tmp(bucket, name)
