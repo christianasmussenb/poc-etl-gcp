@@ -69,7 +69,7 @@ def _insert_df(df: pd.DataFrame) -> int:
 def ingest(event: dict, _context):
     bucket, name = event["bucket"], event["name"]
     if not bucket or not name:
-        raise # ValueError("Bad event payload")
+        raise ValueError("Bad event payload")
 
     try:
         local = _download_to_tmp(bucket, name)
@@ -89,4 +89,4 @@ def ingest(event: dict, _context):
             "error": str(exc)
         }).encode())
         # Cloud Functions considera que un 500 provoca re-intento; perfecto
-        raise # ValueError(500, str(exc))
+        raise ValueError(500, str(exc))
